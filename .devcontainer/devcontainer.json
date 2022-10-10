@@ -43,7 +43,8 @@
 				"eamodio.gitlens",
 				"waderyan.gitblame",
 				"donjayamanne.githistory",
-				"shardulm94.trailing-spaces"
+				"shardulm94.trailing-spaces",
+				"esbenp.prettier-vscode"
 			]
 		}
 	},
