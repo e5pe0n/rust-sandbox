@@ -45,3 +45,5 @@ Cargo.lock
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,rust
 
 hello*/
+!hello_macro/
+!hello_macro_derive/
