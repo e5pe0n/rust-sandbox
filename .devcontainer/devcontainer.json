@@ -44,7 +44,8 @@
 				"waderyan.gitblame",
 				"donjayamanne.githistory",
 				"shardulm94.trailing-spaces",
-				"esbenp.prettier-vscode"
+				"esbenp.prettier-vscode",
+				"gruntfuggly.todo-tree"
 			]
 		}
 	},
