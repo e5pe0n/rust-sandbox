@@ -1,6 +1,8 @@
 mod subcmd;
-mod test_utils;
 mod todo;
+
+#[cfg(test)]
+mod test_utils;
 
 use serde_json::Error as JSONError;
 use std::cmp::max;
