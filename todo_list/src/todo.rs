@@ -1,10 +1,28 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::fmt;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Status {
     ToDo,
     InProgress,
     Done,
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::ToDo => String::from("ToDo"),
+                Self::InProgress => String::from("InProgress"),
+                Self::Done => String::from("Done"),
+            }
+        )
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -14,7 +32,7 @@ pub struct PartialTodo {
     pub label: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Todo {
     pub id: usize,
     pub title: String,
@@ -23,7 +41,7 @@ pub struct Todo {
     pub label: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TodoList {
     list: Vec<Todo>,
 }
@@ -33,6 +51,14 @@ impl TodoList {
         TodoList {
             list: Vec::from_iter(iter),
         }
+    }
+
+    pub fn load(file_path: &str) -> Result<Self, Box<dyn Error>> {
+        let file = File::open(file_path)?;
+        let buf = BufReader::new(file);
+        let todos: Vec<Todo> = serde_json::from_reader(buf)?;
+
+        Ok(Self::new(todos.into_iter()))
     }
 
     fn get_next_id(&self) -> usize {
@@ -53,14 +79,26 @@ impl TodoList {
         });
     }
 
-    fn list(&self) -> &Vec<Todo> {
+    pub fn list(&self) -> &Vec<Todo> {
         &self.list
+    }
+
+    pub fn save(&self, file_path: &str) -> Result<(), Box<dyn Error>> {
+        let file = File::open(file_path)?;
+        let buf = BufWriter::new(file);
+        let json = serde_json::to_string(&self)?;
+        serde_json::to_writer(buf, &json)?;
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
-mod TodoList_tests {
-    use super::PartialTodo;
+mod tests {
+    use super::*;
+    use rstest::*;
+    use serde_json::Error as JSONError;
+    use std::io::Error as IOError;
 
     fn create_partial_todo0() -> PartialTodo {
         PartialTodo {
@@ -70,9 +108,72 @@ mod TodoList_tests {
         }
     }
 
+    mod load_tests {
+        use super::*;
+
+        #[rstest]
+        #[case(
+            "test_assets/todo-list.json",
+                    TodoList::new(
+                        vec![
+                            Todo {
+                                id: 0,
+                                title: String::from("title0"),
+                                description: String::from("description0"),
+                                status: Status::ToDo,
+                                label: String::from(""),
+                            },
+                            Todo {
+                                id: 1,
+                                title: String::from("title1"),
+                                description: String::from("description1"),
+                                status: Status::InProgress,
+                                label: String::from("label1"),
+                            },
+                            Todo {
+                                id: 2,
+                                title: String::from("title2"),
+                                description: String::from("description2"),
+                                status: Status::Done,
+                                label: String::from("label2"),
+                            },
+                        ]
+                        .into_iter()
+                    ),
+        )]
+        fn should_load_todo_list(#[case] file_path: &str, #[case] expected: TodoList) {
+            let res = TodoList::load(file_path);
+            assert!(res.is_ok(), "not Ok; res={:?}", res);
+
+            assert_eq!(res.unwrap(), expected);
+        }
+
+        #[test]
+        fn should_return_io_error() {
+            let path = "";
+
+            let res = TodoList::load(path);
+            match res {
+                Err(err) if err.is::<IOError>() => (),
+                x => panic!("did not return io::Error; {:?} was returned", x),
+            }
+        }
+
+        #[test]
+        fn should_return_json_error() {
+            let path = "test_assets/todo-list-invalid.json";
+
+            let res = TodoList::load(path);
+            assert!(res.is_err(), "not err; res={:?}", res);
+
+            let err = res.unwrap_err();
+            assert!(err.is::<JSONError>(), "not expected err; res={:?}", err);
+        }
+    }
+
     mod add_tests {
-        use super::super::{Status, Todo, TodoList};
         use super::create_partial_todo0;
+        use super::*;
 
         #[test]
         fn should_add_new_todo() {
